@@ -2,13 +2,8 @@
 set -e
 
 echo "kb: 0.1"
-echo "expecting pwd: /var/lib/artemis/bin"
-echo "> ls pwd (`pwd`)"
-ls
-echo "> ls .."
-ls ..
 echo "> ls ../etc"
-ls ../etc
+ls /var/lib/artemis/etc
 echo "---"
 
 # Log to tty to enable docker logs container-name
