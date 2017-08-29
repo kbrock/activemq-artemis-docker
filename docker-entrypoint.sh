@@ -1,8 +1,18 @@
 #!/bin/bash
 set -e
 
+echo "kb: 0.1"
+echo "expecting pwd: /var/lib/artemis/bin"
+echo "> ls pwd (`pwd`)"
+ls
+echo "> ls .."
+ls ..
+echo "> ls ../etc"
+ls ../etc
+echo "---"
+
 # Log to tty to enable docker logs container-name
-sed -i "s/logger.handlers=.*/logger.handlers=CONSOLE/g" ../etc/logging.properties
+sed -i "s/logger.handlers=.*/logger.handlers=CONSOLE/g" /var/lib/artemis/etc/logging.properties
 
 BROKER_HOME=/var/lib/artemis/
 OVERRIDE_PATH=$BROKER_HOME/etc-override
@@ -10,18 +20,18 @@ CONFIG_PATH=$BROKER_HOME/etc
 
 # Update users and roles with if username and password is passed as argument
 if [[ "$ARTEMIS_USERNAME" && "$ARTEMIS_PASSWORD" ]]; then
-  sed -i "s/amq[ ]*=.*/amq=$ARTEMIS_USERNAME\n/g" ../etc/artemis-roles.properties
-  sed -i "s/artemis[ ]*=.*/$ARTEMIS_USERNAME=$ARTEMIS_PASSWORD\n/g" ../etc/artemis-users.properties
+  sed -i "s/amq[ ]*=.*/amq=$ARTEMIS_USERNAME\n/g" /var/lib/artemis/etc/artemis-roles.properties
+  sed -i "s/artemis[ ]*=.*/$ARTEMIS_USERNAME=$ARTEMIS_PASSWORD\n/g" /var/lib/artemis/etc/artemis-users.properties
 fi
 
 # Update min memory if the argument is passed
 if [[ "$ARTEMIS_MIN_MEMORY" ]]; then
-  sed -i "s/-Xms512M/-Xms$ARTEMIS_MIN_MEMORY/g" ../etc/artemis.profile
+  sed -i "s/-Xms512M/-Xms$ARTEMIS_MIN_MEMORY/g" /var/lib/artemis/etc/artemis.profile
 fi
 
 # Update max memory if the argument is passed
 if [[ "$ARTEMIS_MAX_MEMORY" ]]; then
-  sed -i "s/-Xmx1024M/-Xmx$ARTEMIS_MAX_MEMORY/g" ../etc/artemis.profile
+  sed -i "s/-Xmx1024M/-Xmx$ARTEMIS_MAX_MEMORY/g" /var/lib/artemis/etc/artemis.profile
 fi
 
 files=$(find $OVERRIDE_PATH -name "broker*" -type f | cut -d. -f1 | sort -u );
@@ -64,7 +74,7 @@ function performance-journal {
     fi
 
     echo -n "Calculating performance journal ... "
-    RECOMMENDED_JOURNAL_BUFFER=$(gosu artemis "./artemis" "perf-journal" | grep "<journal-buffer-timeout" | xmlstarlet sel -t -c '/journal-buffer-timeout/text()' || true)
+    RECOMMENDED_JOURNAL_BUFFER=$(./artemis perf-journal | grep "<journal-buffer-timeout" | xmlstarlet sel -t -c '/journal-buffer-timeout/text()' || true)
     if [ -z "$RECOMMENDED_JOURNAL_BUFFER" ]; then
       echo "There was an error calculating the performance journal, gracefully handling it"
       return
@@ -74,7 +84,7 @@ function performance-journal {
       -N activemq="urn:activemq" \
       -N core="urn:activemq:core" \
       -u "/activemq:configuration/core:core/core:journal-buffer-timeout" \
-      -v "$RECOMMENDED_JOURNAL_BUFFER" ../etc/broker.xml
+      -v "$RECOMMENDED_JOURNAL_BUFFER" /var/lib/artemis/etc/broker.xml
       echo $RECOMMENDED_JOURNAL_BUFFER
 
     if [[ "$ARTEMIS_PERF_JOURNAL" = "AUTO" ]]; then
@@ -85,8 +95,8 @@ function performance-journal {
 
 performance-journal
 
-if [ "$1" = 'artemis-server' ]; then
-	set -- gosu artemis "./artemis" "run"
-fi
+# if [ "$1" = 'artemis-server' ]; then
+# 	set -- gosu artemis "./artemis" "run"
+# fi
 
 exec "$@"
