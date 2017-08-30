@@ -1,14 +1,6 @@
 #!/bin/bash
 set -e
 
-echo "kb: 0.1"
-echo "> ls ../etc"
-ls /var/lib/artemis/etc
-echo "---"
-
-# Log to tty to enable docker logs container-name
-sed -i "s/logger.handlers=.*/logger.handlers=CONSOLE/g" /var/lib/artemis/etc/logging.properties
-
 BROKER_HOME=/var/lib/artemis/
 OVERRIDE_PATH=$BROKER_HOME/etc-override
 CONFIG_PATH=$BROKER_HOME/etc
@@ -29,26 +21,25 @@ if [[ "$ARTEMIS_MAX_MEMORY" ]]; then
   sed -i "s/-Xmx1024M/-Xmx$ARTEMIS_MAX_MEMORY/g" /var/lib/artemis/etc/artemis.profile
 fi
 
-files=$(find $OVERRIDE_PATH -name "broker*" -type f | cut -d. -f1 | sort -u );
-if [ ${#files[@]} ]; then
-  cp $CONFIG_PATH/broker.xml /tmp/broker.xml
-  for f in $files; do
-    if [ -f $f.xslt ]; then
-      xmlstarlet tr $f.xslt /tmp/broker.xml > /tmp/broker-tr.xml
-      mv /tmp/broker-tr.xml /tmp/broker.xml
-    fi
-    if [ -f $f.xml ]; then
-      xmlstarlet tr /opt/assets/merge.xslt -s replace=true -s with=$f.xml /tmp/broker.xml > /tmp/broker-merge.xml
-      mv /tmp/broker-merge.xml /tmp/broker.xml
-    fi
-  done
-  cp /tmp/broker.xml $CONFIG_PATH/broker.xml
-else
-  echo No configuration snippets found
-fi
+# files=$(find $OVERRIDE_PATH -name "broker*" -type f | cut -d. -f1 | sort -u );
+# if [ ${#files[@]} ]; then
+#   cp $CONFIG_PATH/broker.xml /tmp/broker.xml
+#   for f in $files; do
+#     if [ -f $f.xslt ]; then
+#       xmlstarlet tr $f.xslt /tmp/broker.xml > /tmp/broker-tr.xml
+#       mv /tmp/broker-tr.xml /tmp/broker.xml
+#     fi
+#     if [ -f $f.xml ]; then
+#       xmlstarlet tr /opt/assets/merge.xslt -s replace=true -s with=$f.xml /tmp/broker.xml > /tmp/broker-merge.xml
+#       mv /tmp/broker-merge.xml /tmp/broker.xml
+#     fi
+#   done
+#   cp /tmp/broker.xml $CONFIG_PATH/broker.xml
+# else
+#   echo No configuration snippets found
+# fi
 
 if [[ "$ENABLE_JMX" ]]; then
-
   cat << 'EOF' >> $CONFIG_PATH/artemis.profile
     if [ "$1" = "run" ]; then
       JAVA_ARGS="$JAVA_ARGS -Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.port=${JMX_PORT:-1099} -Dcom.sun.management.jmxremote.rmi.port=${JMX_RMI_PORT:-1098} -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false"
@@ -90,8 +81,9 @@ function performance-journal {
 
 performance-journal
 
-# if [ "$1" = 'artemis-server' ]; then
-# 	set -- gosu artemis "./artemis" "run"
-# fi
+
+if [ "$1" = 'artemis-server' ]; then
+  ./artemis "run"
+fi
 
 exec "$@"

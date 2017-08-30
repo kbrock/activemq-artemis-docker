@@ -5,6 +5,7 @@ MAINTAINER Victor Romero <victor.romero@gmail.com>
 
 # add user and group for artemis
 RUN groupadd -r artemis && useradd -r -g artemis artemis
+RUN id artemis
 
 RUN apt-get -qq -o=Dpkg::Use-Pty=0 update && apt-get -qq -o=Dpkg::Use-Pty=0 upgrade -y && \
   apt-get -qq -o=Dpkg::Use-Pty=0 install -y --no-install-recommends libaio1 xmlstarlet jq && \
@@ -39,7 +40,15 @@ RUN cd /var/lib/artemis/etc && \
     -u "/amq:broker/amq:web/@bind" \
     -v "http://0.0.0.0:8161" bootstrap.xml
 
+# Log to tty to enable docker logs container-name
+RUN sed -i "s/logger.handlers=.*/logger.handlers=CONSOLE/g" /var/lib/artemis/etc/logging.properties
+
+RUN mkdir /var/lib/artemis/lock/
 RUN chown -R artemis.artemis /var/lib/artemis
+RUN chmod 777 /var/lib/artemis/etc
+RUN chmod 777 /var/lib/artemis/lock/
+RUN chmod 666 /var/lib/artemis/etc/*
+RUN ls -ltR /var/lib/artemis/etc/ /var/lib/artemis/bin/
 
 RUN mkdir -p /opt/assets
 COPY assets/merge.xslt /opt/assets
@@ -66,8 +75,8 @@ EXPOSE 61613
 # Expose some outstanding folders
 VOLUME ["/var/lib/artemis/data"]
 VOLUME ["/var/lib/artemis/tmp"]
-VOLUME ["/var/lib/artemis/etc"]
-VOLUME ["/var/lib/artemis/etc-override"]
+# VOLUME ["/var/lib/artemis/etc"]
+# VOLUME ["/var/lib/artemis/etc-override"]
 
 WORKDIR /var/lib/artemis/bin
 
