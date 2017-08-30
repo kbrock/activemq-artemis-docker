@@ -5,26 +5,11 @@ MAINTAINER Victor Romero <victor.romero@gmail.com>
 
 # add user and group for artemis
 RUN groupadd -r artemis && useradd -r -g artemis artemis
+RUN id artemis
 
 RUN apt-get -qq -o=Dpkg::Use-Pty=0 update && apt-get -qq -o=Dpkg::Use-Pty=0 upgrade -y && \
   apt-get -qq -o=Dpkg::Use-Pty=0 install -y --no-install-recommends libaio1 xmlstarlet jq && \
   rm -rf /var/lib/apt/lists/*
-
-# grab gosu for easy step-down from root
-ENV GOSU_VERSION 1.9
-RUN set -x \
-    && apt-get update && apt-get install -y --no-install-recommends ca-certificates wget && rm -rf /var/lib/apt/lists/* \
-    && dpkgArch="$(dpkg --print-architecture | awk -F- '{ print $NF }')" \
-    && wget -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch" \
-    && wget -O /usr/local/bin/gosu.asc "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch.asc" \
-    && export GNUPGHOME="$(mktemp -d)" \
-    && gpg --keyserver ha.pool.sks-keyservers.net --recv-keys B42F6819007F00F88E364FD4036A9C25BF357DD4 \
-    && gpg --batch --verify /usr/local/bin/gosu.asc /usr/local/bin/gosu \
-    && rm -r "$GNUPGHOME" /usr/local/bin/gosu.asc \
-    && chmod +x /usr/local/bin/gosu \
-    && gosu nobody true
-
-
 
 # Uncompress and validate
 ENV ACTIVEMQ_ARTEMIS_VERSION 2.1.0
@@ -55,7 +40,15 @@ RUN cd /var/lib/artemis/etc && \
     -u "/amq:broker/amq:web/@bind" \
     -v "http://0.0.0.0:8161" bootstrap.xml
 
+# Log to tty to enable docker logs container-name
+RUN sed -i "s/logger.handlers=.*/logger.handlers=CONSOLE/g" /var/lib/artemis/etc/logging.properties
+
+RUN mkdir /var/lib/artemis/lock/
 RUN chown -R artemis.artemis /var/lib/artemis
+RUN chmod 777 /var/lib/artemis/etc
+RUN chmod 777 /var/lib/artemis/lock/
+RUN chmod 666 /var/lib/artemis/etc/*
+RUN ls -ltR /var/lib/artemis/etc/ /var/lib/artemis/bin/
 
 RUN mkdir -p /opt/assets
 COPY assets/merge.xslt /opt/assets
@@ -82,10 +75,12 @@ EXPOSE 61613
 # Expose some outstanding folders
 VOLUME ["/var/lib/artemis/data"]
 VOLUME ["/var/lib/artemis/tmp"]
-VOLUME ["/var/lib/artemis/etc"]
-VOLUME ["/var/lib/artemis/etc-override"]
+# VOLUME ["/var/lib/artemis/etc"]
+# VOLUME ["/var/lib/artemis/etc-override"]
 
 WORKDIR /var/lib/artemis/bin
+
+USER artemis
 
 COPY docker-entrypoint.sh /
 ENTRYPOINT ["/docker-entrypoint.sh"]
